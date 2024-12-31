@@ -200,6 +200,31 @@ body {
   display: block;
   margin: auto;
 }
+
+.typing-container {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    text-align: center;
+}
+
+.typing-text {
+    font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    font-size: 32px;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.6),
+                 0 0 30px rgba(255, 215, 0, 0.4);
+    line-height: 2;
+    letter-spacing: 4px;
+    white-space: pre-line;
+    opacity: 0.9;
+}
+
+/* 添加字体 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&display=swap');
 </style>
 </head>
 <body>
@@ -282,42 +307,6 @@ body {
 'use strict';
 console.clear();
  
-function initAudio() {
-    const launchSound = document.getElementById('launch-sound');
-    const explosionSound = document.getElementById('explosion-sound');
-    
-    // 预加载音频
-    launchSound.load();
-    explosionSound.load();
-    
-    // 调整音量 - 升空声音更小，爆炸声音更大
-    launchSound.volume = 0.15;     // 降低升空音量
-    explosionSound.volume = 0.7;   // 增加爆炸音量
-    
-    // 播放一次（静音）以解除浏览器限制
-    launchSound.muted = true;
-    explosionSound.muted = true;
-    launchSound.play().then(() => {
-        launchSound.pause();
-        launchSound.currentTime = 0;
-        launchSound.muted = false;
-    }).catch(e => console.log('Launch sound init error:', e));
-    
-    explosionSound.play().then(() => {
-        explosionSound.pause();
-        explosionSound.currentTime = 0;
-        explosionSound.muted = false;
-    }).catch(e => console.log('Explosion sound init error:', e));
-}
-
-// 在页面加载完成后初始化音频
-document.addEventListener('DOMContentLoaded', () => {
-    // 等待用户第一次点击
-    document.addEventListener('click', function initOnFirstClick() {
-        initAudio();
-        document.removeEventListener('click', initOnFirstClick);
-    }, { once: true });
-});
  
 const IS_MOBILE = window.innerWidth <= 640;
 const IS_DESKTOP = window.innerWidth > 800;
@@ -1413,14 +1402,6 @@ launch(position, launchHeight) {
     // Using a custom power curve to approximate Vi needed to reach launchDistance under gravity and air drag.
     // Magic numbers came from testing.
     const launchVelocity = Math.pow(launchDistance * 0.04, 0.64);
-    const launchSound = this.createAudio('launch');
-    try {
-        launchSound.play().catch(error => {
-            console.log('Launch sound play error:', error);
-        });
-    } catch(e) {
-        console.log('Launch sound play error:', e);
-    }
     const comet = this.comet = Star.add(
         launchX,
         launchY,
@@ -1446,22 +1427,22 @@ launch(position, launchHeight) {
     }
     comet.onDeath = comet => this.burst(comet.x, comet.y);
     // comet.onDeath = () => this.burst(launchX, burstY);
+
+    // 播放发射音效
+    const launchSound = this.createAudio('launch');
+    try {
+        launchSound.play().catch(error => {
+            console.log('Launch sound play error:', error);
+        });
+    } catch(e) {
+        console.log('Launch sound play error:', e);
+    }
 }
 
 burst(x, y) {
-    // 创建并播放爆炸音效
-    const explosionSound = this.createAudio('explosion');
-    try {
-        explosionSound.play().catch(error => {
-            console.log('Explosion sound play error:', error);
-        });
-    } catch(e) {
-        console.log('Explosion sound play error:', e);
-    }
-
     // Set burst speed so overall burst grows to set size. This specific formula was derived from testing, and is affected by simulated air drag.
     const speed = this.size / 96;
- 
+    
     let color, onDeath, sparkFreq, sparkSpeed, sparkLife;
     let sparkLifeVariation = 0.25;
     if (this.crossette) onDeath = crossetteEffect;
@@ -1507,9 +1488,9 @@ burst(x, y) {
             this.horsetail && this.comet && this.comet.speedX,
             this.horsetail && this.comet && this.comet.speedY
         );
- 
+        
         star.onDeath = onDeath;
- 
+        
         if (this.glitter) {
             star.sparkFreq = sparkFreq;
             star.sparkSpeed = sparkSpeed;
@@ -1602,6 +1583,16 @@ burst(x, y) {
     }
     // Queue burst flash render
     BurstFlash.add(x, y, this.size / 8);
+
+    // 播放爆炸音效
+    const explosionSound = this.createAudio('explosion');
+    try {
+        explosionSound.play().catch(error => {
+            console.log('Explosion sound play error:', error);
+        });
+    } catch(e) {
+        console.log('Explosion sound play error:', e);
+    }
 }
 }
  
@@ -1721,6 +1712,48 @@ this._pool.push(instance);
  
  
 init();
+
+// 打字效果函数
+function typeWriter(element, texts, speed = 100, delay = 1000) {
+    let currentTextIndex = 0;
+    let currentCharIndex = 0;
+    
+    function type() {
+        if (currentTextIndex < texts.length) {
+            if (currentCharIndex < texts[currentTextIndex].length) {
+                element.textContent += texts[currentTextIndex][currentCharIndex];
+                currentCharIndex++;
+                setTimeout(type, speed);
+            } else {
+                element.textContent += '\n';
+                currentTextIndex++;
+                currentCharIndex = 0;
+                setTimeout(type, delay);
+            }
+        }
+    }
+    
+    type();
+}
+
+// 在页面加载完成后开始打字效果
+document.addEventListener('DOMContentLoaded', () => {
+    const typingElement = document.querySelector('.typing-text');
+    const texts = [
+        "美 好",
+        "有备而来",
+        "邀您一起",
+        "沐光而行"
+    ];
+    
+    // 开始打字效果，设置较慢的打字速度和较长的行间延迟
+    setTimeout(() => {
+        typeWriter(typingElement, texts, 200, 1200);
+    }, 1500);
+});
 </script>
+<div class="typing-container">
+    <div class="typing-text"></div>
+</div>
 </body>
-</html>
+</html>————————————————
